@@ -1,9 +1,8 @@
 // ============================================
-// REVO — Unified Database Seed
+// REVO — Production Seed (FINAL)
 // ============================================
-// Single source of truth for all demo data.
-// Location: apps/api/src/database/prisma/seed.ts
-// Run with: pnpm db:seed
+// Location: apps/api/prisma/seed.ts
+// Run: npx prisma db seed
 // ============================================
 
 import { PrismaClient } from '@prisma/client';
@@ -11,577 +10,308 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
-async function main() {
-    console.log('🌱 Seeding REVO database...\n');
+// ════════════════════════════════════════════
+// SUPER ADMIN CONFIG
+// ════════════════════════════════════════════
+// ⚠️ Cambiar password después del primer login
 
-    // ============================================
-    // CLEANUP — Orden inverso a las relaciones
-    // ============================================
-    await prisma.stockMovement.deleteMany();
-    await prisma.orderItem.deleteMany();
-    await prisma.order.deleteMany();
-    await prisma.productModifierGroup.deleteMany();
-    await prisma.modifier.deleteMany();
-    await prisma.modifierGroup.deleteMany();
-    await prisma.product.deleteMany();
-    await prisma.category.deleteMany();
-    await prisma.restaurantTable.deleteMany();
-    await prisma.zone.deleteMany();
-    await prisma.refreshToken.deleteMany();
-    await prisma.user.deleteMany();
-    await prisma.tenant.deleteMany();
-    console.log('🗑️  Cleaned existing data');
+const SUPER_ADMIN = {
+    name: 'Luis Contreras',
+    email: 'luis.contreras.20@gmail.com',
+    password: 'SuperAdmin123!',
+};
 
-    // ============================================
-    // 1. TENANT
-    // ============================================
-    const tenant = await prisma.tenant.create({
-        data: {
-            name: 'El Fogón de Luis',
-            slug: 'el-fogon-de-luis',
-            phone: '+58 412-555-1234',
-            address: 'Av. Principal, Centro Comercial, Local 5, Caracas',
-            currency: 'USD',
-            timezone: 'America/Caracas',
-            plan: 'PRO',
-        },
-    });
-    console.log('✅ Tenant:', tenant.name);
+// ════════════════════════════════════════════
+// PERMISSIONS CATALOG
+// ════════════════════════════════════════════
 
-    // ============================================
-    // 2. USERS
-    // ============================================
-    const hashedPassword = await bcrypt.hash('Admin123!', 12);
+export const PERMISSIONS = [
+    // Dashboard
+    { code: 'dashboard:view', name: 'Ver dashboard', module: 'dashboard', description: 'Acceder al dashboard y ver estadísticas', sortOrder: 1 },
 
-    const owner = await prisma.user.create({
-        data: {
-            tenantId: tenant.id,
-            email: 'luis@revo.com',
-            password: hashedPassword,
-            name: 'Luis',
-            role: 'OWNER',
-        },
-    });
+    // Menú / Catálogo
+    { code: 'menu:view', name: 'Ver menú', module: 'menu', description: 'Ver productos y categorías', sortOrder: 10 },
+    { code: 'menu:create', name: 'Crear productos', module: 'menu', description: 'Crear nuevos productos y categorías', sortOrder: 11 },
+    { code: 'menu:edit', name: 'Editar productos', module: 'menu', description: 'Modificar productos y categorías existentes', sortOrder: 12 },
+    { code: 'menu:delete', name: 'Eliminar productos', module: 'menu', description: 'Eliminar productos y categorías', sortOrder: 13 },
 
-    const waiter = await prisma.user.create({
-        data: {
-            tenantId: tenant.id,
-            email: 'carlos@revo.com',
-            password: hashedPassword,
-            name: 'Carlos Rodríguez',
-            role: 'WAITER',
-        },
-    });
+    // Mesas
+    { code: 'tables:view', name: 'Ver mesas', module: 'tables', description: 'Ver el mapa de mesas y su estado', sortOrder: 20 },
+    { code: 'tables:manage', name: 'Gestionar mesas', module: 'tables', description: 'Crear, editar y eliminar mesas', sortOrder: 21 },
+    { code: 'tables:change_status', name: 'Cambiar estado de mesa', module: 'tables', description: 'Ocupar, liberar o marcar mesas en limpieza', sortOrder: 22 },
 
-    const kitchenUser = await prisma.user.create({
-        data: {
-            tenantId: tenant.id,
-            email: 'ana@revo.com',
-            password: hashedPassword,
-            name: 'Ana Martínez',
-            role: 'KITCHEN',
-        },
-    });
+    // Pedidos
+    { code: 'orders:view', name: 'Ver pedidos', module: 'orders', description: 'Ver lista de pedidos', sortOrder: 30 },
+    { code: 'orders:create', name: 'Crear pedidos', module: 'orders', description: 'Tomar nuevos pedidos', sortOrder: 31 },
+    { code: 'orders:edit', name: 'Editar pedidos', module: 'orders', description: 'Modificar pedidos existentes', sortOrder: 32 },
+    { code: 'orders:cancel', name: 'Cancelar pedidos', module: 'orders', description: 'Cancelar pedidos completos', sortOrder: 33 },
+    { code: 'orders:change_status', name: 'Cambiar estado de pedido', module: 'orders', description: 'Actualizar estado del pedido', sortOrder: 34 },
 
-    const cashier = await prisma.user.create({
-        data: {
-            tenantId: tenant.id,
-            email: 'maria@revo.com',
-            password: hashedPassword,
-            name: 'María García',
-            role: 'CASHIER',
-        },
-    });
+    // POS
+    { code: 'pos:access', name: 'Acceder al POS', module: 'pos', description: 'Acceder al punto de venta', sortOrder: 40 },
+    { code: 'pos:process_payment', name: 'Procesar cobros', module: 'pos', description: 'Cobrar cuentas a clientes', sortOrder: 41 },
+    { code: 'pos:apply_discount', name: 'Aplicar descuentos', module: 'pos', description: 'Aplicar descuentos a pedidos', sortOrder: 42 },
+    { code: 'pos:void_item', name: 'Anular items', module: 'pos', description: 'Eliminar items de una cuenta', sortOrder: 43 },
+    { code: 'pos:open_drawer', name: 'Abrir caja', module: 'pos', description: 'Abrir el cajón de dinero', sortOrder: 44 },
+    { code: 'pos:cash_operations', name: 'Operaciones de caja', module: 'pos', description: 'Hacer retiros, ingresos y arqueos de caja', sortOrder: 45 },
 
-    console.log('✅ Users: Owner, Waiter, Kitchen, Cashier');
+    // Cocina (KDS)
+    { code: 'kds:access', name: 'Acceder a cocina', module: 'kds', description: 'Ver la pantalla de cocina (KDS)', sortOrder: 50 },
+    { code: 'kds:update_status', name: 'Actualizar platos', module: 'kds', description: 'Marcar platos como en preparación o listos', sortOrder: 51 },
 
-    // ============================================
-    // 3. CATEGORIES
-    // ============================================
-    const entradas = await prisma.category.create({
-        data: { tenantId: tenant.id, name: 'Entradas', description: 'Para comenzar bien', sortOrder: 0 },
-    });
-    const platos = await prisma.category.create({
-        data: { tenantId: tenant.id, name: 'Platos Principales', description: 'Lo mejor de la casa', sortOrder: 1 },
-    });
-    const arepas = await prisma.category.create({
-        data: { tenantId: tenant.id, name: 'Arepas', description: 'Rellenas como te gustan', sortOrder: 2 },
-    });
-    const bebidas = await prisma.category.create({
-        data: { tenantId: tenant.id, name: 'Bebidas', description: 'Refrescantes y naturales', sortOrder: 3 },
-    });
-    const postres = await prisma.category.create({
-        data: { tenantId: tenant.id, name: 'Postres', description: 'El toque dulce', sortOrder: 4 },
-    });
-    const desayunos = await prisma.category.create({
-        data: { tenantId: tenant.id, name: 'Desayunos', description: 'Para arrancar el día con energía', sortOrder: 5 },
-    });
+    // Reportes
+    { code: 'reports:view', name: 'Ver reportes', module: 'reports', description: 'Acceder a reportes y estadísticas', sortOrder: 60 },
+    { code: 'reports:sales', name: 'Reportes de ventas', module: 'reports', description: 'Ver reportes detallados de ventas', sortOrder: 61 },
+    { code: 'reports:products', name: 'Reportes de productos', module: 'reports', description: 'Ver reportes de productos más vendidos', sortOrder: 62 },
+    { code: 'reports:staff', name: 'Reportes de personal', module: 'reports', description: 'Ver reportes de desempeño del equipo', sortOrder: 63 },
+    { code: 'reports:export', name: 'Exportar reportes', module: 'reports', description: 'Descargar reportes en PDF o Excel', sortOrder: 64 },
 
-    console.log('✅ Categories: 6');
+    // Inventario
+    { code: 'inventory:view', name: 'Ver inventario', module: 'inventory', description: 'Ver lista de ingredientes y stock', sortOrder: 70 },
+    { code: 'inventory:manage', name: 'Gestionar inventario', module: 'inventory', description: 'Crear, editar y eliminar ingredientes', sortOrder: 71 },
+    { code: 'inventory:adjust', name: 'Ajustar stock', module: 'inventory', description: 'Hacer ajustes manuales de inventario', sortOrder: 72 },
+    { code: 'inventory:alerts', name: 'Ver alertas de stock', module: 'inventory', description: 'Ver alertas de stock bajo', sortOrder: 73 },
 
-    // ============================================
-    // 4. PRODUCTS (with inventory data)
-    // ============================================
-    const products = await Promise.all([
-        // --- Entradas ---
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: entradas.id, name: 'Tequeños de Queso', description: 'Crujientes palitos de masa rellenos de queso blanco (6 uds)', price: 6.50, priceUsd: 6.50, sortOrder: 0, trackStock: true, currentStock: 45, minStock: 10, stockUnit: 'porción' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: entradas.id, name: 'Empanadas de Cazón', description: 'Empanadas fritas de harina de maíz con cazón guisado (3 uds)', price: 5.00, priceUsd: 5.00, sortOrder: 1, trackStock: true, currentStock: 30, minStock: 8, stockUnit: 'porción' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: entradas.id, name: 'Tostones con Guasacaca', description: 'Plátano verde frito con salsa guasacaca casera', price: 4.50, priceUsd: 4.50, sortOrder: 2, trackStock: true, currentStock: 5, minStock: 10, stockUnit: 'porción' },
-        }),
+    // Equipo / Usuarios
+    { code: 'users:view', name: 'Ver equipo', module: 'users', description: 'Ver lista de usuarios del equipo', sortOrder: 80 },
+    { code: 'users:create', name: 'Crear usuarios', module: 'users', description: 'Agregar nuevos miembros al equipo', sortOrder: 81 },
+    { code: 'users:edit', name: 'Editar usuarios', module: 'users', description: 'Modificar datos de usuarios', sortOrder: 82 },
+    { code: 'users:delete', name: 'Eliminar usuarios', module: 'users', description: 'Desactivar o eliminar usuarios', sortOrder: 83 },
+    { code: 'users:assign_role', name: 'Asignar roles', module: 'users', description: 'Cambiar el rol de un usuario', sortOrder: 84 },
 
-        // --- Platos Principales ---
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: platos.id, name: 'Pabellón Criollo', description: 'Carne mechada, caraotas negras, arroz blanco, tajadas y huevo frito', price: 12.00, priceUsd: 12.00, sortOrder: 0, trackStock: true, currentStock: 20, minStock: 5, stockUnit: 'plato' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: platos.id, name: 'Asado Negro', description: 'Carne en salsa dulce con arroz blanco y tajadas', price: 14.00, priceUsd: 14.00, sortOrder: 1, trackStock: true, currentStock: 12, minStock: 5, stockUnit: 'plato' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: platos.id, name: 'Pollo en Brasas', description: 'Medio pollo a las brasas con ensalada y yuca frita', price: 11.00, priceUsd: 11.00, sortOrder: 2, trackStock: true, currentStock: 15, minStock: 5, stockUnit: 'plato' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: platos.id, name: 'Parrilla Mixta', description: 'Chorizo, morcilla, pollo y carne con arepa y guasacaca', price: 18.00, priceUsd: 18.00, sortOrder: 3, trackStock: true, currentStock: 8, minStock: 4, stockUnit: 'plato' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: platos.id, name: 'Cachapa con Queso de Mano', description: 'Cachapa de maíz tierno con queso telita', price: 7.00, priceUsd: 7.00, sortOrder: 4, trackStock: true, currentStock: 18, minStock: 6, stockUnit: 'unidad' },
-        }),
+    // Roles y Permisos
+    { code: 'roles:view', name: 'Ver roles', module: 'roles', description: 'Ver lista de roles', sortOrder: 90 },
+    { code: 'roles:manage', name: 'Gestionar roles', module: 'roles', description: 'Crear, editar y eliminar roles', sortOrder: 91 },
 
-        // --- Arepas ---
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: arepas.id, name: 'Reina Pepiada', description: 'Pollo desmechado con aguacate y mayonesa', price: 5.50, priceUsd: 5.50, sortOrder: 0, trackStock: true, currentStock: 25, minStock: 8, stockUnit: 'unidad' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: arepas.id, name: 'Dominó', description: 'Caraotas negras con queso blanco rallado', price: 4.00, priceUsd: 4.00, sortOrder: 1, trackStock: true, currentStock: 20, minStock: 8, stockUnit: 'unidad' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: arepas.id, name: 'Pelúa', description: 'Carne mechada con queso amarillo', price: 5.50, priceUsd: 5.50, sortOrder: 2, trackStock: true, currentStock: 3, minStock: 8, stockUnit: 'unidad' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: arepas.id, name: 'La del Chef', description: 'Pernil, queso de mano, aguacate y salsa de la casa', price: 7.00, priceUsd: 7.00, sortOrder: 3, trackStock: true, currentStock: 10, minStock: 5, stockUnit: 'unidad' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: arepas.id, name: 'Catira', description: 'Pollo desmenuzado y queso amarillo', price: 5.00, priceUsd: 5.00, sortOrder: 4, trackStock: true, currentStock: 22, minStock: 8, stockUnit: 'unidad' },
-        }),
+    // Carta Digital / QR
+    { code: 'qr:view', name: 'Ver códigos QR', module: 'qr', description: 'Ver códigos QR de mesas', sortOrder: 100 },
+    { code: 'qr:print', name: 'Imprimir QR', module: 'qr', description: 'Imprimir códigos QR', sortOrder: 101 },
+    { code: 'qr:regenerate', name: 'Regenerar QR', module: 'qr', description: 'Generar nuevos códigos QR', sortOrder: 102 },
 
-        // --- Bebidas (sin stock — productos de barra) ---
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: bebidas.id, name: 'Jugo de Parchita', description: 'Jugo natural de maracuyá', price: 3.00, priceUsd: 3.00, sortOrder: 0, trackStock: true, currentStock: 40, minStock: 10, stockUnit: 'vaso' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: bebidas.id, name: 'Jugo de Guanábana', description: 'Jugo natural cremoso', price: 3.00, priceUsd: 3.00, sortOrder: 1, trackStock: true, currentStock: 35, minStock: 10, stockUnit: 'vaso' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: bebidas.id, name: 'Papelón con Limón', description: 'Bebida tradicional de papelón y limón', price: 2.50, priceUsd: 2.50, sortOrder: 2, trackStock: false, currentStock: 0, minStock: 0, stockUnit: 'vaso' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: bebidas.id, name: 'Cerveza Polar', description: 'Pilsen bien fría (330ml)', price: 3.50, priceUsd: 3.50, sortOrder: 3, trackStock: true, currentStock: 48, minStock: 12, stockUnit: 'botella' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: bebidas.id, name: 'Malta Regional', description: 'Malta oscura (250ml)', price: 2.00, priceUsd: 2.00, sortOrder: 4, trackStock: true, currentStock: 24, minStock: 6, stockUnit: 'botella' },
-        }),
+    // Configuración
+    { code: 'settings:view', name: 'Ver configuración', module: 'settings', description: 'Ver ajustes del negocio', sortOrder: 110 },
+    { code: 'settings:edit', name: 'Editar configuración', module: 'settings', description: 'Modificar ajustes del negocio', sortOrder: 111 },
+    { code: 'settings:billing', name: 'Ver facturación', module: 'settings', description: 'Ver plan y facturación de REVO', sortOrder: 112 },
+];
 
-        // --- Postres ---
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: postres.id, name: 'Quesillo', description: 'Quesillo casero tradicional', price: 4.00, priceUsd: 4.00, sortOrder: 0, trackStock: true, currentStock: 8, minStock: 3, stockUnit: 'porción' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: postres.id, name: 'Tres Leches', description: 'Torta empapada en tres leches con merengue', price: 5.00, priceUsd: 5.00, sortOrder: 1, trackStock: true, currentStock: 6, minStock: 3, stockUnit: 'porción' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: postres.id, name: 'Bienmesabe', description: 'Postre de coco rallado tradicional', price: 4.50, priceUsd: 4.50, sortOrder: 2, trackStock: true, currentStock: 0, minStock: 3, stockUnit: 'porción' },
-        }),
+// ════════════════════════════════════════════
+// DEFAULT ROLES FOR NEW TENANTS
+// ════════════════════════════════════════════
 
-        // --- Desayunos ---
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: desayunos.id, name: 'Empanada de Queso', description: 'Empanada frita rellena de queso blanco', price: 2.50, priceUsd: 2.50, sortOrder: 0, trackStock: true, currentStock: 15, minStock: 5, stockUnit: 'unidad' },
-        }),
-        prisma.product.create({
-            data: { tenantId: tenant.id, categoryId: desayunos.id, name: 'Combo Mañanero', description: 'Arepa + café con leche + jugo de naranja', price: 6.00, priceUsd: 6.00, sortOrder: 1, trackStock: false, currentStock: 0, minStock: 0, stockUnit: 'combo' },
-        }),
-    ]);
+export const DEFAULT_ROLES = [
+    {
+        name: 'Dueño',
+        description: 'Control total del negocio',
+        color: '#3D4F2F',
+        permissions: 'ALL',
+    },
+    {
+        name: 'Administrador',
+        description: 'Gestión completa excepto facturación',
+        color: '#5F7161',
+        permissions: [
+            'dashboard:view',
+            'menu:view', 'menu:create', 'menu:edit', 'menu:delete',
+            'tables:view', 'tables:manage', 'tables:change_status',
+            'orders:view', 'orders:create', 'orders:edit', 'orders:cancel', 'orders:change_status',
+            'pos:access', 'pos:process_payment', 'pos:apply_discount', 'pos:void_item', 'pos:open_drawer', 'pos:cash_operations',
+            'kds:access', 'kds:update_status',
+            'reports:view', 'reports:sales', 'reports:products', 'reports:staff', 'reports:export',
+            'inventory:view', 'inventory:manage', 'inventory:adjust', 'inventory:alerts',
+            'users:view', 'users:create', 'users:edit', 'users:delete', 'users:assign_role',
+            'roles:view', 'roles:manage',
+            'qr:view', 'qr:print', 'qr:regenerate',
+            'settings:view', 'settings:edit',
+        ],
+    },
+    {
+        name: 'Gerente',
+        description: 'Supervisión de operaciones diarias',
+        color: '#6B8F71',
+        permissions: [
+            'dashboard:view',
+            'menu:view', 'menu:create', 'menu:edit',
+            'tables:view', 'tables:manage', 'tables:change_status',
+            'orders:view', 'orders:create', 'orders:edit', 'orders:cancel', 'orders:change_status',
+            'pos:access', 'pos:process_payment', 'pos:apply_discount', 'pos:void_item', 'pos:cash_operations',
+            'kds:access', 'kds:update_status',
+            'reports:view', 'reports:sales', 'reports:products', 'reports:staff',
+            'inventory:view', 'inventory:manage', 'inventory:adjust', 'inventory:alerts',
+            'users:view',
+            'qr:view', 'qr:print',
+        ],
+    },
+    {
+        name: 'Cajero',
+        description: 'Punto de venta y cobros',
+        color: '#D4A574',
+        permissions: [
+            'dashboard:view',
+            'menu:view',
+            'tables:view', 'tables:change_status',
+            'orders:view', 'orders:create', 'orders:change_status',
+            'pos:access', 'pos:process_payment', 'pos:apply_discount', 'pos:open_drawer', 'pos:cash_operations',
+            'qr:view',
+        ],
+    },
+    {
+        name: 'Mesero',
+        description: 'Atención de mesas y pedidos',
+        color: '#C8553D',
+        isDefault: true,
+        permissions: [
+            'menu:view',
+            'tables:view', 'tables:change_status',
+            'orders:view', 'orders:create', 'orders:edit',
+        ],
+    },
+    {
+        name: 'Cocina',
+        description: 'Preparación de pedidos',
+        color: '#8B6914',
+        permissions: [
+            'menu:view',
+            'orders:view',
+            'kds:access', 'kds:update_status',
+            'inventory:view', 'inventory:alerts',
+        ],
+    },
+];
 
-    console.log(`✅ Products: ${products.length}`);
+// ════════════════════════════════════════════
+// SEED FUNCTIONS
+// ════════════════════════════════════════════
 
-    // Helper para buscar productos por nombre
-    const p = (name: string) => products.find((prod) => prod.name.toLowerCase().includes(name.toLowerCase()))!;
+async function seedPermissions() {
+    console.log('📋 Seeding permissions...');
 
-    // ============================================
-    // 5. ZONES & TABLES
-    // ============================================
-    const salon = await prisma.zone.create({
-        data: { tenantId: tenant.id, name: 'Salón Principal', sortOrder: 0 },
-    });
-    const terraza = await prisma.zone.create({
-        data: { tenantId: tenant.id, name: 'Terraza', sortOrder: 1 },
-    });
-    const barra = await prisma.zone.create({
-        data: { tenantId: tenant.id, name: 'Barra', sortOrder: 2 },
-    });
-
-    // Salón: S-1 a S-8
-    const salonTables = [];
-    for (let i = 1; i <= 8; i++) {
-        const t = await prisma.restaurantTable.create({
-            data: {
-                tenantId: tenant.id,
-                zoneId: salon.id,
-                number: `S-${i}`,
-                capacity: i <= 6 ? 4 : 8,
-                status: 'AVAILABLE',
+    for (const permission of PERMISSIONS) {
+        await prisma.permission.upsert({
+            where: { code: permission.code },
+            update: {
+                name: permission.name,
+                module: permission.module,
+                description: permission.description,
+                sortOrder: permission.sortOrder,
             },
+            create: permission,
         });
-        salonTables.push(t);
     }
 
-    // Terraza: T-1 a T-6
-    const terrazaTables = [];
-    for (let i = 1; i <= 6; i++) {
-        const t = await prisma.restaurantTable.create({
-            data: {
-                tenantId: tenant.id,
-                zoneId: terraza.id,
-                number: `T-${i}`,
-                capacity: i <= 4 ? 4 : 6,
-                status: 'AVAILABLE',
-            },
-        });
-        terrazaTables.push(t);
+    console.log(`   ✅ ${PERMISSIONS.length} permissions created\n`);
+}
+
+async function seedSuperAdmin() {
+    console.log('👤 Creating Super Admin...');
+
+    const hashedPassword = await bcrypt.hash(SUPER_ADMIN.password, 12);
+
+    // Check if exists
+    const existing = await prisma.user.findFirst({
+        where: { email: SUPER_ADMIN.email },
+    });
+
+    if (existing) {
+        // Update existing user to super admin
+        await prisma.$executeRaw`
+            UPDATE users
+            SET "isSuperAdmin" = true, "isActive" = true
+            WHERE email = ${SUPER_ADMIN.email}
+        `;
+        console.log(`   ✅ Super Admin updated: ${SUPER_ADMIN.email}\n`);
+    } else {
+        // Create new super admin (bypassing Prisma required fields)
+        await prisma.$executeRaw`
+            INSERT INTO users (id, name, email, password, "isActive", "isSuperAdmin", "createdAt", "updatedAt")
+            VALUES (
+                       gen_random_uuid(),
+                       ${SUPER_ADMIN.name},
+                       ${SUPER_ADMIN.email},
+                       ${hashedPassword},
+                       true,
+                       true,
+                       NOW(),
+                       NOW()
+                   )
+        `;
+        console.log(`   ✅ Super Admin created: ${SUPER_ADMIN.email}\n`);
     }
+}
 
-    // Barra: B-1 a B-5
-    const barraTables = [];
-    for (let i = 1; i <= 5; i++) {
-        const t = await prisma.restaurantTable.create({
-            data: {
-                tenantId: tenant.id,
-                zoneId: barra.id,
-                number: `B-${i}`,
-                capacity: 2,
-                status: 'AVAILABLE',
-            },
-        });
-        barraTables.push(t);
-    }
+// ─── Exportable: Create default roles for a tenant ───
+export async function seedDefaultRolesForTenant(tenantId: string) {
+    console.log(`👥 Creating default roles for tenant...`);
 
-    console.log('✅ Zones: 3 (Salón 8, Terraza 6, Barra 5 = 19 mesas)');
+    const allPermissions = await prisma.permission.findMany();
+    const permissionMap = new Map(allPermissions.map((p) => [p.code, p.id]));
 
-    // ============================================
-    // 6. ORDERS
-    // ============================================
-    console.log('\n🧾 Seeding orders...');
-
-    // Helpers
-    let orderCounter = 0;
-    const nextOrderNum = () => ++orderCounter;
-    const minsAgo = (mins: number) => new Date(Date.now() - mins * 60 * 1000);
-
-    async function createOrder(data: {
-        tableId?: string | null;
-        userId: string;
-        type: string;
-        status: string;
-        currency?: string;
-        paymentMethod?: string | null;
-        paidAt?: Date | null;
-        notes?: string | null;
-        createdAt: Date;
-        items: Array<{
-            productId: string;
-            productName: string;
-            quantity: number;
-            unitPrice: number;
-            notes?: string;
-            status: string;
-        }>;
-    }) {
-        const order = await prisma.order.create({
-            data: {
-                tenantId: tenant.id,
-                tableId: data.tableId ?? null,
-                userId: data.userId,
-                orderNumber: nextOrderNum(),
-                type: data.type as any,
-                status: data.status as any,
-                currency: data.currency ?? 'USD',
-                paymentMethod: data.paymentMethod as any ?? null,
-                paidAt: data.paidAt ?? null,
-                notes: data.notes ?? null,
-                subtotal: 0,
-                tax: 0,
-                total: 0,
-                createdAt: data.createdAt,
-                items: {
-                    create: data.items.map((item) => ({
-                        productId: item.productId,
-                        productName: item.productName,
-                        quantity: item.quantity,
-                        unitPrice: item.unitPrice,
-                        notes: item.notes ?? null,
-                        status: item.status as any,
-                    })),
-                },
-            },
-            include: { items: true },
+    for (const roleDef of DEFAULT_ROLES) {
+        const existing = await prisma.role.findUnique({
+            where: { tenantId_name: { tenantId, name: roleDef.name } },
         });
 
-        const subtotal = order.items.reduce(
-            (sum, item) => sum + Number(item.unitPrice) * item.quantity,
-            0,
-        );
-        const tax = Math.round(subtotal * 0.16 * 100) / 100;
-        const total = Math.round((subtotal + tax) * 100) / 100;
+        if (existing) continue;
 
-        await prisma.order.update({
-            where: { id: order.id },
-            data: { subtotal, tax, total },
-        });
-
-        if (
-            data.tableId &&
-            data.type === 'DINE_IN' &&
-            !['PAID', 'CANCELLED'].includes(data.status)
-        ) {
-            await prisma.restaurantTable.update({
-                where: { id: data.tableId },
-                data: { status: 'OCCUPIED' },
-            });
+        let permissionIds: string[];
+        if (roleDef.permissions === 'ALL') {
+            permissionIds = allPermissions.map((p) => p.id);
+        } else {
+            permissionIds = (roleDef.permissions as string[])
+                .map((code) => permissionMap.get(code))
+                .filter((id): id is string => !!id);
         }
 
-        return order;
-    }
-
-    // ---- Pedido 1: S-1 — PENDING ----
-    await createOrder({
-        tableId: salonTables[0].id,
-        userId: waiter.id,
-        type: 'DINE_IN',
-        status: 'PENDING',
-        createdAt: minsAgo(2),
-        items: [
-            { productId: p('pabellón').id, productName: 'Pabellón Criollo', quantity: 2, unitPrice: 12.00, status: 'PENDING' },
-            { productId: p('jugo de parchita').id, productName: 'Jugo de Parchita', quantity: 2, unitPrice: 3.00, status: 'PENDING', notes: 'Sin hielo' },
-        ],
-    });
-
-    // ---- Pedido 2: S-4 — CONFIRMED ----
-    await createOrder({
-        tableId: salonTables[3].id,
-        userId: waiter.id,
-        type: 'DINE_IN',
-        status: 'CONFIRMED',
-        createdAt: minsAgo(12),
-        items: [
-            { productId: p('parrilla').id, productName: 'Parrilla Mixta', quantity: 1, unitPrice: 18.00, status: 'PENDING', notes: 'Término medio' },
-            { productId: p('tostones').id, productName: 'Tostones con Guasacaca', quantity: 1, unitPrice: 4.50, status: 'PENDING' },
-            { productId: p('cerveza').id, productName: 'Cerveza Polar', quantity: 3, unitPrice: 3.50, status: 'PENDING', notes: 'Bien frías' },
-        ],
-    });
-
-    // ---- Pedido 3: S-6 — PREPARING ----
-    await createOrder({
-        tableId: salonTables[5].id,
-        userId: waiter.id,
-        type: 'DINE_IN',
-        status: 'PREPARING',
-        createdAt: minsAgo(20),
-        items: [
-            { productId: p('tequeños').id, productName: 'Tequeños de Queso', quantity: 2, unitPrice: 6.50, status: 'PREPARING' },
-            { productId: p('cachapa').id, productName: 'Cachapa con Queso de Mano', quantity: 1, unitPrice: 7.00, status: 'PREPARING', notes: 'Con queso de mano extra' },
-            { productId: p('jugo de guanábana').id, productName: 'Jugo de Guanábana', quantity: 3, unitPrice: 3.00, status: 'READY' },
-        ],
-    });
-
-    // ---- Pedido 4: S-8 — READY ----
-    await createOrder({
-        tableId: salonTables[7].id,
-        userId: waiter.id,
-        type: 'DINE_IN',
-        status: 'READY',
-        createdAt: minsAgo(35),
-        items: [
-            { productId: p('asado').id, productName: 'Asado Negro', quantity: 2, unitPrice: 14.00, status: 'READY', notes: '1 sin tajadas' },
-            { productId: p('reina').id, productName: 'Reina Pepiada', quantity: 2, unitPrice: 5.50, status: 'READY' },
-            { productId: p('papelón').id, productName: 'Papelón con Limón', quantity: 4, unitPrice: 2.50, status: 'READY' },
-        ],
-    });
-
-    // ---- Pedido 5: T-2 — SERVED ----
-    await createOrder({
-        tableId: terrazaTables[1].id,
-        userId: waiter.id,
-        type: 'DINE_IN',
-        status: 'SERVED',
-        createdAt: minsAgo(50),
-        items: [
-            { productId: p('pollo en brasas').id, productName: 'Pollo en Brasas', quantity: 1, unitPrice: 11.00, status: 'SERVED' },
-            { productId: p('pelúa').id, productName: 'Pelúa', quantity: 2, unitPrice: 5.50, status: 'SERVED' },
-            { productId: p('cerveza').id, productName: 'Cerveza Polar', quantity: 4, unitPrice: 3.50, status: 'SERVED' },
-        ],
-    });
-
-    // ---- Pedido 6: TAKEOUT — PREPARING ----
-    await createOrder({
-        tableId: null,
-        userId: cashier.id,
-        type: 'TAKEOUT',
-        status: 'PREPARING',
-        createdAt: minsAgo(15),
-        notes: 'Cliente: María González — Retira en 20 min',
-        items: [
-            { productId: p('pabellón').id, productName: 'Pabellón Criollo', quantity: 3, unitPrice: 12.00, status: 'PREPARING', notes: '1 sin tajada' },
-            { productId: p('tequeños').id, productName: 'Tequeños de Queso', quantity: 1, unitPrice: 6.50, status: 'PREPARING' },
-        ],
-    });
-
-    // ---- Pedido 7: DELIVERY — CONFIRMED ----
-    await createOrder({
-        tableId: null,
-        userId: cashier.id,
-        type: 'DELIVERY',
-        status: 'CONFIRMED',
-        createdAt: minsAgo(8),
-        notes: 'Delivery: Av. Libertador #42, Caracas — Tel: 0412-555-6789',
-        items: [
-            { productId: p('catira').id, productName: 'Catira', quantity: 4, unitPrice: 5.00, status: 'PENDING' },
-            { productId: p('empanadas').id, productName: 'Empanadas de Cazón', quantity: 2, unitPrice: 5.00, status: 'PENDING' },
-            { productId: p('jugo de parchita').id, productName: 'Jugo de Parchita', quantity: 4, unitPrice: 3.00, status: 'PENDING' },
-        ],
-    });
-
-    // ---- Pedido 8: B-3 — PAID (Pago Móvil) ----
-    await createOrder({
-        tableId: barraTables[2].id,
-        userId: cashier.id,
-        type: 'DINE_IN',
-        status: 'PAID',
-        paymentMethod: 'PAGO_MOVIL',
-        paidAt: minsAgo(30),
-        createdAt: minsAgo(90),
-        items: [
-            { productId: p('cerveza').id, productName: 'Cerveza Polar', quantity: 6, unitPrice: 3.50, status: 'SERVED' },
-            { productId: p('tequeños').id, productName: 'Tequeños de Queso', quantity: 2, unitPrice: 6.50, status: 'SERVED' },
-        ],
-    });
-
-    // ---- Pedido 9: S-3 — PAID (Zelle) ----
-    await createOrder({
-        tableId: salonTables[2].id,
-        userId: cashier.id,
-        type: 'DINE_IN',
-        status: 'PAID',
-        paymentMethod: 'ZELLE',
-        paidAt: minsAgo(60),
-        createdAt: minsAgo(120),
-        items: [
-            { productId: p('cachapa').id, productName: 'Cachapa con Queso de Mano', quantity: 2, unitPrice: 7.00, status: 'SERVED' },
-            { productId: p('combo').id, productName: 'Combo Mañanero', quantity: 2, unitPrice: 6.00, status: 'SERVED' },
-            { productId: p('jugo de guanábana').id, productName: 'Jugo de Guanábana', quantity: 2, unitPrice: 3.00, status: 'SERVED' },
-        ],
-    });
-
-    // ---- Pedido 10: CANCELLED ----
-    await createOrder({
-        tableId: salonTables[1].id,
-        userId: waiter.id,
-        type: 'DINE_IN',
-        status: 'CANCELLED',
-        createdAt: minsAgo(75),
-        notes: 'Cancelado: cliente se fue por tiempo de espera',
-        items: [
-            { productId: p('parrilla').id, productName: 'Parrilla Mixta', quantity: 2, unitPrice: 18.00, status: 'CANCELLED' },
-            { productId: p('cerveza').id, productName: 'Cerveza Polar', quantity: 4, unitPrice: 3.50, status: 'CANCELLED' },
-        ],
-    });
-
-    // Mesa T-5 reservada
-    await prisma.restaurantTable.update({
-        where: { id: terrazaTables[4].id },
-        data: { status: 'RESERVED' },
-    });
-
-    // Mesa S-7 en limpieza
-    await prisma.restaurantTable.update({
-        where: { id: salonTables[6].id },
-        data: { status: 'CLEANING' },
-    });
-
-    console.log(`✅ Orders: ${orderCounter}`);
-
-    // ============================================
-    // 7. STOCK MOVEMENTS (Inventory history)
-    // ============================================
-    console.log('\n📦 Seeding inventory movements...');
-
-    const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
-
-    // Helper
-    async function createMovement(data: {
-        productId: string;
-        type: string;
-        quantity: number;
-        previousQty: number;
-        newQty: number;
-        reason?: string;
-        userId?: string;
-        createdAt: Date;
-    }) {
-        await prisma.stockMovement.create({
+        await prisma.role.create({
             data: {
-                tenantId: tenant.id,
-                productId: data.productId,
-                type: data.type as any,
-                quantity: data.quantity,
-                previousQty: data.previousQty,
-                newQty: data.newQty,
-                reason: data.reason ?? null,
-                userId: data.userId ?? null,
-                createdAt: data.createdAt,
+                tenantId,
+                name: roleDef.name,
+                description: roleDef.description,
+                color: roleDef.color,
+                isDefault: (roleDef as any).isDefault || false,
+                permissions: {
+                    create: permissionIds.map((permissionId) => ({ permissionId })),
+                },
             },
         });
+
+        console.log(`   ✓ Role "${roleDef.name}" created`);
+    }
+}
+
+// ════════════════════════════════════════════
+// MAIN
+// ════════════════════════════════════════════
+
+async function main() {
+    console.log('');
+    console.log('🌱 ═══════════════════════════════════════');
+    console.log('   REVO — Production Seed');
+    console.log('═══════════════════════════════════════════\n');
+
+    // 1. Seed permissions (required for all)
+    await seedPermissions();
+
+    // 2. Create Super Admin
+    await seedSuperAdmin();
+
+    // 3. Create default roles for existing tenants (if any)
+    const tenants = await prisma.tenant.findMany();
+    if (tenants.length > 0) {
+        console.log(`🏪 Found ${tenants.length} existing tenant(s), seeding roles...\n`);
+        for (const tenant of tenants) {
+            await seedDefaultRolesForTenant(tenant.id);
+        }
     }
 
-    // Compra matutina de tequeños
-    await createMovement({ productId: p('tequeños').id, type: 'PURCHASE', quantity: 50, previousQty: 10, newQty: 60, reason: 'Compra proveedor mañana', userId: owner.id, createdAt: hoursAgo(6) });
-    // Ventas durante el día
-    await createMovement({ productId: p('tequeños').id, type: 'SALE', quantity: 15, previousQty: 60, newQty: 45, reason: 'Ventas turno mañana', createdAt: hoursAgo(3) });
-
-    // Compra de cervezas
-    await createMovement({ productId: p('cerveza').id, type: 'PURCHASE', quantity: 72, previousQty: 0, newQty: 72, reason: 'Reposición semanal Polar', userId: owner.id, createdAt: hoursAgo(24) });
-    await createMovement({ productId: p('cerveza').id, type: 'SALE', quantity: 24, previousQty: 72, newQty: 48, reason: 'Ventas del día', createdAt: hoursAgo(2) });
-
-    // Merma de pelúa (se dañó aguacate)
-    await createMovement({ productId: p('pelúa').id, type: 'WASTE', quantity: 5, previousQty: 8, newQty: 3, reason: 'Aguacate dañado', userId: kitchenUser.id, createdAt: hoursAgo(4) });
-
-    // Ajuste de bienmesabe (inventario a 0)
-    await createMovement({ productId: p('bienmesabe').id, type: 'ADJUSTMENT', quantity: 4, previousQty: 4, newQty: 0, reason: 'Conteo físico — se agotó', userId: owner.id, createdAt: hoursAgo(1) });
-
-    // Compra de arepas reina
-    await createMovement({ productId: p('reina').id, type: 'PURCHASE', quantity: 30, previousQty: 5, newQty: 35, reason: 'Compra masa y pollo', userId: owner.id, createdAt: hoursAgo(5) });
-    await createMovement({ productId: p('reina').id, type: 'SALE', quantity: 10, previousQty: 35, newQty: 25, createdAt: hoursAgo(1) });
-
-    console.log('✅ Stock movements: 7');
-
-    // ============================================
-    // SUMMARY
-    // ============================================
-    const lowStock = products.filter((prod) => prod.trackStock && Number(prod.currentStock) <= Number(prod.minStock));
-
-    console.log('\n🎉 Seed complete!\n');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('  🏪 Restaurant: El Fogón de Luis');
-    console.log('  📧 Login:      luis@revo.com');
-    console.log('  🔑 Password:   Admin123!');
-    console.log(`  🍽️  Products:   ${products.length}`);
-    console.log('  🪑 Tables:     19');
-    console.log(`  🧾 Orders:     ${orderCounter}`);
-    console.log(`  📦 Tracked:    ${products.filter((p) => p.trackStock).length} products`);
-    console.log(`  ⚠️  Low stock:  ${lowStock.length} alerts`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    // Summary
+    console.log('═══════════════════════════════════════════');
+    console.log('🎉 Seed completed successfully!');
+    console.log('═══════════════════════════════════════════\n');
+    console.log('Super Admin credentials:');
+    console.log(`   📧 Email:    ${SUPER_ADMIN.email}`);
+    console.log(`   🔑 Password: ${SUPER_ADMIN.password}`);
+    console.log('');
+    console.log('⚠️  Change the password after first login!\n');
 }
 
 main()
