@@ -1,0 +1,106 @@
+# ============================================
+# REVO — Production Deployment
+# ============================================
+
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: ../
+      dockerfile: apps/api/Dockerfile
+    container_name: revo-api
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - revo-network
+
+  dashboard:
+    build:
+      context: ../
+      dockerfile: apps/dashboard/Dockerfile
+    container_name: revo-dashboard
+    restart: unless-stopped
+    networks:
+      - revo-network
+
+  menu:
+    build:
+      context: ../
+      dockerfile: apps/menu/Dockerfile
+    container_name: revo-menu
+    restart: unless-stopped
+    networks:
+      - revo-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: revo-db
+    restart: unless-stopped
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: revo
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d revo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - revo-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: revo-redis
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - revo-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: revo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - api
+      - dashboard
+      - menu
+    networks:
+      - revo-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: revo-certbot
+    volumes:
+      - ./nginx/ssl:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  pgdata:
+  redisdata:
+  certbot-webroot:
+
+networks:
+  revo-network:
+    driver: bridge

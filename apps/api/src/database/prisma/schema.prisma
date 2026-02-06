@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id         String            @id @default(cuid())
+  name       String
+  slug       String            @unique
+  logo       String?
+  phone      String?
+  address    String?
+  currency   String            @default("VES")
+  timezone   String            @default("America/Caracas")
+  plan       Plan              @default(FREE)
+  isActive   Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  categories Category[]
+  orders     Order[]
+  products   Product[]
+  tables     RestaurantTable[]
+  roles      Role[]
+  users      User[]
+  zones      Zone[]
+
+  @@map("tenants")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  tenantId          String
+  email             String
+  password          String
+  name              String
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  roleId            String
+  orders            Order[]
+  role              Role      @relation(fields: [roleId], references: [id])
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Password reset
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  // Invitation
+  inviteToken       String?
+  inviteTokenExpiry DateTime?
+  // Audit
+  createdBy         String?
+  // Admin
+  isSuperAdmin      Boolean   @default(false)
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([roleId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  name        String
+  module      String
+  description String?
+  sortOrder   Int              @default(0)
+  roles       RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  color       String?          @default("#6B8F71")
+  isDefault   Boolean          @default(false)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @default(now()) @updatedAt
+  permissions RolePermission[]
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       User[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  image       String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products    Product[]
+
+  @@index([tenantId])
+  @@map("categories")
+}
+
+model Product {
+  id             String                 @id @default(cuid())
+  tenantId       String
+  categoryId     String
+  name           String
+  description    String?
+  image          String?
+  price          Decimal                @db.Decimal(10, 2)
+  priceUsd       Decimal?               @db.Decimal(10, 2)
+  sortOrder      Int                    @default(0)
+  isAvailable    Boolean                @default(true)
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  currentStock   Decimal                @default(0) @db.Decimal(10, 2)
+  minStock       Decimal                @default(0) @db.Decimal(10, 2)
+  stockUnit      String                 @default("unidad")
+  trackStock     Boolean                @default(false)
+  orderItems     OrderItem[]
+  modifierGroups ProductModifierGroup[]
+  category       Category               @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stockMovements StockMovement[]
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ModifierGroup {
+  id         String                 @id @default(cuid())
+  tenantId   String
+  name       String
+  isRequired Boolean                @default(false)
+  minSelect  Int                    @default(0)
+  maxSelect  Int                    @default(1)
+  modifiers  Modifier[]
+  products   ProductModifierGroup[]
+
+  @@index([tenantId])
+  @@map("modifier_groups")
+}
+
+model Modifier {
+  id              String        @id @default(cuid())
+  modifierGroupId String
+  name            String
+  priceAdjustment Decimal       @default(0) @db.Decimal(10, 2)
+  isActive        Boolean       @default(true)
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@map("modifiers")
+}
+
+model ProductModifierGroup {
+  productId       String
+  modifierGroupId String
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([productId, modifierGroupId])
+  @@map("product_modifier_groups")
+}
+
+model Zone {
+  id        String            @id @default(cuid())
+  tenantId  String
+  name      String
+  sortOrder Int               @default(0)
+  tables    RestaurantTable[]
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("zones")
+}
+
+model RestaurantTable {
+  id       String      @id @default(cuid())
+  tenantId String
+  zoneId   String?
+  number   String
+  capacity Int         @default(4)
+  status   TableStatus @default(AVAILABLE)
+  qrCode   String?     @unique @default(cuid())
+  orders   Order[]
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  zone     Zone?       @relation(fields: [zoneId], references: [id])
+
+  @@unique([tenantId, number])
+  @@index([tenantId])
+  @@map("restaurant_tables")
+}
+
+model Order {
+  id            String           @id @default(cuid())
+  tenantId      String
+  tableId       String?
+  userId        String?
+  orderNumber   Int
+  type          OrderType        @default(DINE_IN)
+  status        OrderStatus      @default(PENDING)
+  subtotal      Decimal          @db.Decimal(10, 2)
+  tax           Decimal          @default(0) @db.Decimal(10, 2)
+  discount      Decimal          @default(0) @db.Decimal(10, 2)
+  total         Decimal          @db.Decimal(10, 2)
+  currency      String           @default("VES")
+  paymentMethod PaymentMethod?
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  items         OrderItem[]
+  table         RestaurantTable? @relation(fields: [tableId], references: [id])
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?            @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String     @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  unitPrice   Decimal    @db.Decimal(10, 2)
+  modifiers   Json?
+  notes       String?
+  status      ItemStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product    @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model StockMovement {
+  id          String       @id @default(cuid())
+  tenantId    String
+  productId   String
+  type        MovementType
+  quantity    Decimal      @db.Decimal(10, 2)
+  previousQty Decimal      @db.Decimal(10, 2)
+  newQty      Decimal      @db.Decimal(10, 2)
+  reason      String?
+  userId      String?
+  createdAt   DateTime     @default(now())
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([tenantId, createdAt])
+  @@map("stock_movements")
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  CLEANING
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEOUT
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  SERVED
+  PAID
+  CANCELLED
+}
+
+enum ItemStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH_VES
+  CASH_USD
+  PAGO_MOVIL
+  ZELLE
+  TRANSFER
+  POINT_OF_SALE
+  MIXED
+}
+
+enum MovementType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+  WASTE
+  TRANSFER
+  RETURN
+}
