@@ -22,7 +22,7 @@ COPY apps/dashboard/package.json ./apps/dashboard/
 COPY packages/ ./packages/
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source code
 COPY apps/dashboard/ ./apps/dashboard/

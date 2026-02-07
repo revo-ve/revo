@@ -18,7 +18,7 @@ COPY package.json ./apps/api/
 COPY ../../packages ./packages/
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source code
 COPY apps/api/ ./apps/api/
