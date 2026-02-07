@@ -33,8 +33,8 @@ RUN pnpm install --no-frozen-lockfile
 COPY apps/dashboard/ ./apps/dashboard/
 COPY turbo.json ./
 
-# Build the dashboard
-RUN pnpm --filter @revo/dashboard build
+# Build the dashboard (skip tsc, use vite only)
+RUN cd apps/dashboard && npx vite build
 
 # ─── Production Stage ───
 FROM nginx:alpine AS runner

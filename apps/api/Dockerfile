@@ -13,19 +13,25 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Copy package files
-COPY ../../package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY package.json ./apps/api/
-COPY ../../packages ./packages/
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/ ./packages/
+
+# Copy tsconfig
+COPY tsconfig.json ./
+
+# Copy prisma schema BEFORE install (needed for prisma generate)
+COPY apps/api/prisma ./apps/api/prisma/
 
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile
 
-# Copy source code
-COPY apps/api/ ./apps/api/
-COPY ../../turbo.json ./
-
 # Generate Prisma client
 RUN cd apps/api && npx prisma generate
+
+# Copy source code
+COPY apps/api/ ./apps/api/
+COPY turbo.json ./
 
 # Build the API
 RUN pnpm --filter @revo/api build
