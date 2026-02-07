@@ -21,6 +21,11 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/dashboard/package.json ./apps/dashboard/
 COPY packages/ ./packages/
 
+# Copy tsconfig files (root and app)
+COPY tsconfig.json ./
+COPY apps/dashboard/tsconfig.json ./apps/dashboard/
+COPY apps/dashboard/tsconfig.node.json ./apps/dashboard/
+
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile
 
