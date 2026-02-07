@@ -29,24 +29,25 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+# Install pnpm (needed for module resolution)
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 
-# Copy entire monorepo structure with node_modules
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/apps/api/package.json ./apps/api/
-COPY --from=builder /app/apps/api/src/database/prisma ./apps/api/src/database/prisma
-COPY --from=builder /app/packages ./packages
+# Copy ENTIRE app from builder (preserves pnpm symlinks)
+COPY --from=builder /app ./
 
 # Set ownership
 RUN chown -R nestjs:nodejs /app
 
 USER nestjs
 
-WORKDIR /app/apps/api
+# Stay in root, run from apps/api path
+WORKDIR /app
 
 EXPOSE 3000
 
-CMD ["node", "dist/main.js"]
+# Run from monorepo root with full path
+CMD ["node", "apps/api/dist/main.js"]
