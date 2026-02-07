@@ -12,46 +12,40 @@ WORKDIR /app
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Copy package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/api/package.json ./apps/api/
-COPY packages/ ./packages/
+# Copy ALL project files
+COPY . .
 
-# Copy tsconfig
-COPY tsconfig.json ./
-
-# Copy prisma schema BEFORE install (needed for prisma generate)
-COPY apps/api/src/database/prisma ./apps/api/src/database/prisma/
-
-# Install dependencies
+# Install dependencies (including devDependencies for build)
 RUN pnpm install --no-frozen-lockfile
 
 # Generate Prisma client
-RUN cd apps/api && npx prisma generate --schema=src/database/prisma/schema.prisma
+RUN cd apps/api && npx prisma generate
 
-# Copy source code
-COPY apps/api/ ./apps/api/
-COPY turbo.json ./
+# Build the API using nest cli
+RUN cd apps/api && npx nest build
 
-# Build the API
-RUN pnpm --filter @revo/api build
+# Verify build output
+RUN ls -la apps/api/dist/
 
 # ─── Production Stage ───
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nestjs
 
-# Copy built files
-COPY --from=builder /app/apps/api/dist ./dist
+# Copy package.json
 COPY --from=builder /app/apps/api/package.json ./
+
+# Copy prisma files (for migrations)
 COPY --from=builder /app/apps/api/src/database/prisma ./prisma
+
+# Copy built application
+COPY --from=builder /app/apps/api/dist ./dist
+
+# Copy node_modules
 COPY --from=builder /app/node_modules ./node_modules
 
 # Set ownership
@@ -60,9 +54,5 @@ RUN chown -R nestjs:nodejs /app
 USER nestjs
 
 EXPOSE 3000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
 CMD ["node", "dist/main.js"]
