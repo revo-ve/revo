@@ -21,13 +21,13 @@ COPY packages/ ./packages/
 COPY tsconfig.json ./
 
 # Copy prisma schema BEFORE install (needed for prisma generate)
-COPY apps/api/prisma ./apps/api/prisma/
+COPY apps/api/src/database/prisma ./apps/api/src/database/prisma/
 
 # Install dependencies
 RUN pnpm install --no-frozen-lockfile
 
 # Generate Prisma client
-RUN cd apps/api && npx prisma generate
+RUN cd apps/api && npx prisma generate --schema=src/database/prisma/schema.prisma
 
 # Copy source code
 COPY apps/api/ ./apps/api/
@@ -51,7 +51,7 @@ RUN adduser --system --uid 1001 nestjs
 # Copy built files
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./
-COPY --from=builder /app/apps/api/prisma ./prisma
+COPY --from=builder /app/apps/api/src/database/prisma ./prisma
 COPY --from=builder /app/node_modules ./node_modules
 
 # Set ownership
