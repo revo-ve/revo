@@ -33,17 +33,17 @@ model Tenant {
 
 model User {
   id                String    @id @default(cuid())
-  tenantId          String
+  tenantId          String?
   email             String
   password          String
   name              String
   isActive          Boolean   @default(true)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  roleId            String
+  roleId            String?
   orders            Order[]
-  role              Role      @relation(fields: [roleId], references: [id])
-  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role              Role?     @relation(fields: [roleId], references: [id])
+  tenant            Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   // Password reset
   resetToken        String?
   resetTokenExpiry  DateTime?
