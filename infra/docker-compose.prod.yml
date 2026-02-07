@@ -45,10 +45,11 @@ services:
   # ─── NestJS API ───
   api:
     build:
-      context: .
+      context: ../
       dockerfile: apps/api/Dockerfile
     container_name: revo-api
     restart: unless-stopped
+    env_file: ../.env
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/revo
@@ -74,10 +75,11 @@ services:
   # ─── React Dashboard (Nginx) ───
   dashboard:
     build:
-      context: .
+      context: ../
       dockerfile: apps/dashboard/Dockerfile
       args:
         VITE_API_URL: ${API_URL}/api
+    env_file: ../.env
     container_name: revo-dashboard
     restart: unless-stopped
     ports:
