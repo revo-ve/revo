@@ -16,6 +16,7 @@ import {InventoryModule} from './modules/inventory/inventory.module';
 import {RolesModule} from './modules/roles/roles.module';
 import {MailModule} from './modules/mail/mail.module';
 import {SuperAdminModule} from './modules/superadmin/superadmin.module';
+import {HealthModule} from './modules/health/health.module';
 
 @Module({
     imports: [
@@ -39,6 +40,7 @@ import {SuperAdminModule} from './modules/superadmin/superadmin.module';
         RolesModule,
         MailModule,
         SuperAdminModule,
+        HealthModule,
     ],
 })
 export class AppModule {

@@ -1,0 +1,94 @@
+# ============================================
+# REVO — Docker Compose Production
+# ============================================
+# Location: docker-compose.prod.yml
+# ============================================
+
+version: '3.8'
+
+services:
+  # ─── PostgreSQL Database ───
+  postgres:
+    image: postgres:16-alpine
+    container_name: revo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: revo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - revo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d revo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis Cache ───
+  redis:
+    image: redis:7-alpine
+    container_name: revo-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - revo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── NestJS API ───
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: revo-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/revo
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      MAIL_FROM: ${MAIL_FROM}
+      FRONTEND_URL: ${FRONTEND_URL}
+      API_PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - revo-network
+
+  # ─── React Dashboard (Nginx) ───
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+      args:
+        VITE_API_URL: ${API_URL}/api
+    container_name: revo-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - revo-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  revo-network:
+    driver: bridge
