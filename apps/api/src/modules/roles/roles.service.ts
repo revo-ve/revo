@@ -254,6 +254,6 @@ export class RolesService {
 
         if (!user) return false;
 
-        return user.role.permissions.some((rp) => rp.permission.code === permissionCode);
+        return user.role?.permissions.some((rp) => rp.permission.code === permissionCode) ?? false;
     }
 }

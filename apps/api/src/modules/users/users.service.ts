@@ -271,13 +271,13 @@ export class UsersService {
     // Prevent deactivating if user is the only one with a critical role
     if (data.isActive === false) {
       const roleUserCount = await this.prisma.user.count({
-        where: { tenantId, roleId: target.roleId, isActive: true },
+        where: { tenantId, roleId: target.roleId ?? undefined, isActive: true },
       });
 
       // Check if the role has critical permissions (like roles:manage)
       const criticalPermissions = await this.prisma.rolePermission.findFirst({
         where: {
-          roleId: target.roleId,
+          roleId: target.roleId ?? undefined,
           permission: { code: 'roles:manage' },
         },
       });
@@ -373,7 +373,7 @@ export class UsersService {
     // Check if this is the last user with roles:manage permission
     const criticalPermission = await this.prisma.rolePermission.findFirst({
       where: {
-        roleId: target.roleId,
+        roleId: target.roleId ?? undefined,
         permission: { code: 'roles:manage' },
       },
     });
@@ -465,7 +465,7 @@ export class UsersService {
     // If deactivating, check for last admin
     const criticalPermission = await this.prisma.rolePermission.findFirst({
       where: {
-        roleId: target.roleId,
+        roleId: target.roleId ?? undefined,
         permission: { code: 'roles:manage' },
       },
     });
